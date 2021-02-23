@@ -7,7 +7,7 @@ pub trait GenericHasher {
 	fn write(&mut self, bytes: &[u8]);
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait AsyncHash {
 	async fn hash<G: GenericHasher>(&self, state: &mut G);
 }
