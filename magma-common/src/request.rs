@@ -8,7 +8,8 @@ pub struct Request<G: GenericHasher> {
 }
 
 enum Granularity {
+	// n = distance between id and origin (i.e. id - origin)
 	Direct, // give me only the payload of `id` -- 1 payload
-	SkipLinks, // -- O(log n) payloadpayloads
+	SkipLinks, // -- O(log n) payloads
 	PredLinks, // -- O(n) payloads
 }
