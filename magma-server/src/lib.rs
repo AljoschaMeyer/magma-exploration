@@ -7,54 +7,70 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::io::Write;
+use std::ops::{Generator, GeneratorState};
 
 use async_trait::async_trait;
 use futures::Stream;
 
 #[async_trait(?Send)]
-pub trait Storage<G: GenericHasher, T, E> {
+pub trait Storage<G: GenericHasher, E> {
 	type Writer: Write;
 
-	fn get<'s>(&'s self, id: &Id<G>, offset: u64) -> Result<Option<&'s T>, E>;
+	fn get<'s>(&'s self, id: &Id<G>, offset: u64) -> Result<Option<Box<[u8]>>, E>;
 	fn get_entry(&self, id: &Id<G>) -> Result<Option<Entry<G>>, E>;
 }
 
-pub struct Server<G: GenericHasher, T, E, S: Storage<G, T, E>> {
+pub struct Server<G: GenericHasher, E, S: Storage<G, E>> {
 	storage: S,
-	_phantom: PhantomData<(G, T, E)>,
+	_phantom: PhantomData<(G, E)>,
 }
 
 fn entry_path<G: GenericHasher>(request: &Request<G>) -> impl Iterator<Item=Id<G>> {
-	unimplemented!()
+	panic!("TODO !!!");
+	vec!().into_iter() // TODO
 }
 
-fn result_path<G: GenericHasher>(request: &Request<G>) -> impl Iterator<Item=Id<G>> {
-	unimplemented!()
+struct ServerIter<G: GenericHasher, E, S: Storage<G, E>> {
+	request: Request<G>,
+	_phantom: PhantomData<(G, E, S)>,
+	/* TODO internal state */
 }
 
-impl<G: GenericHasher, T, E, S: Storage<G, T, E>> Server<G, T, E, S> {
-	type Iter = Iterator<Item=Result<Option<T>, S::E>>;
+impl<G: GenericHasher, E, S: Storage<G, E>> ServerIter<G, E, S> {
+	fn new(request: Request<G>) -> Self {
+		Self {
+			request,
+			_phantom: PhantomData,
+		}
+	}
+}
 
-	fn reply(&self, request: Request<G>) -> impl Generator<Yield=Entry<G>, Return=Result<Option<Iter>, S::E>> {
-		let mut gen = || {
+impl<G: GenericHasher, E, S: Storage<G, E>> Iterator for ServerIter<G, E, S> {
+	type Item = Result<Option<Box<[u8]>>, E>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		unimplemented!()
+	}
+}
+
+impl<G: GenericHasher, E, S: Storage<G, E>> Server<G, E, S> {
+	fn reply(&self, request: Request<G>) -> impl Generator<Yield=Entry<G>, Return=Result<Option<ServerIter<G, E, S>>, E>> + '_ {
+		let mut gen = move || {
 			for id in entry_path(&request) {
-				match self.get_entry(&id) {
-					Ok(Some(entry)) => {
-						yield entry,
-					}
+				match self.storage.get_entry(&id) {
+					Ok(Some(entry)) => yield entry,
 					Ok(None) => return Ok(None),
 					Err(e) => return Err(e),
 				}
 			}
-			return Ok(Some(
-				result_path(&request).map(|x| )
-			));
+
+			return Ok(Some(ServerIter::new(request)));
 		};
 		gen
 	}
 }
 
-struct InMemory<G: GenericHasher, T>(HashMap<Id<G>, T>);
+struct InMemory<G: GenericHasher>(HashMap<Id<G>, Box<[u8]>>);
 
 /*
 #[async_trait(?Send)]
